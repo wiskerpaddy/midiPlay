@@ -16,22 +16,28 @@
 </head>
 <body>
 
-    <div class="player-container">
+<div class="player-container">
         <h1>Web MIDI プレイヤー</h1>
         
-        <!-- ファイル選択エリア -->
         <div class="upload-section">
             <label for="file-input" class="file-label">MIDIファイルを選択</label>
             <input type="file" id="file-input" accept=".mid,.midi">
             <span id="file-name">ファイルが選択されていません</span>
         </div>
         
-        <!-- コントロールボタン -->
+        <div class="instrument-section" style="margin-bottom: 20px;">
+            <label for="instrument-select" style="font-size: 0.9rem; color: #2c3e50; margin-right: 8px;">音色:</label>
+            <select id="instrument-select" style="padding: 6px 12px; border-radius: 6px; border: 1px solid #bdc3c7; font-size: 0.9rem;">
+                <option value="piano">生ピアノ (Salamander)</option>
+                <option value="synth">シンセサイザー (Triangle)</option>
+            </select>
+        </div>
+        
         <div class="control-section">
             <button id="play-btn" disabled>再生</button>
         </div>
     </div>
-
+    
     <!-- 自作したJavaScriptファイルの読み込み（必ずBodyの最後で読み込む） -->
     <script src="script.js"></script>
     <script>
