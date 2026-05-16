@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" href="icon.png" type="image/png">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web MIDI プレイヤー</title>
+    
+    <!-- 外部ライブラリの読み込み -->
+    <script src="https://unpkg.com/tone"></script>
+    <script src="https://unpkg.com/@tonejs/midi"></script>
+    
+    <!-- 自作したCSSファイルの読み込み -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="player-container">
+        <h1>Web MIDI プレイヤー</h1>
+        
+        <!-- ファイル選択エリア -->
+        <div class="upload-section">
+            <label for="file-input" class="file-label">MIDIファイルを選択</label>
+            <input type="file" id="file-input" accept=".mid,.midi">
+            <span id="file-name">ファイルが選択されていません</span>
+        </div>
+        
+        <!-- コントロールボタン -->
+        <div class="control-section">
+            <button id="play-btn" disabled>再生</button>
+        </div>
+    </div>
+
+    <!-- 自作したJavaScriptファイルの読み込み（必ずBodyの最後で読み込む） -->
+    <script src="script.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+                .then(reg => console.log('Service Worker registered!'))
+                .catch(err => console.error('Service Worker failed:', err));
+            });
+        }
+    </script>
+</body>
+</html>

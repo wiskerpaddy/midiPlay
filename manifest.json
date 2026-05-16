@@ -1,0 +1,15 @@
+{
+  "name": "Jazz Score Editor",
+  "short_name": "JazzScoreEditor",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#1a1a1a",
+  "theme_color": "#00ffcc",
+  "icons": [
+      {
+        "src": "icon.png",
+        "sizes": "282x282",
+        "type": "image/png"
+      }
+    ]
+}
