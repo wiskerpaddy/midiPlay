@@ -1,6 +1,7 @@
 // プレイヤー用の状態管理
 let currentMidi = null;
 let updateTimerId = null; 
+let animationCallback = null; // abcjsのハイライト用オブジェクト
 
 // --- 音源とエフェクトの定義 ---
 const reverb = new Tone.Reverb(1.5).toDestination();
@@ -57,7 +58,7 @@ if (fileInput) {
 
         if (fileNameDisplay) fileNameDisplay.textContent = file.name;
 
-        // 状態を完全リセット
+        // 再生状態・ハイライト状態を完全にクリア
         resetPlayback();
 
         const reader = new FileReader();
@@ -80,10 +81,29 @@ if (fileInput) {
                     progressBar.value = 0;
                 }
 
-                // 元々100%綺麗に出る設定で楽譜を描画
-                renderScoreFromMidi(currentMidi);
+                // MIDIから動的にABCテキストを生成して楽譜を描画
+                const visualObj = renderScoreFromMidi(currentMidi);
 
-                // 再生タイムラインの構築
+                // ★ abcjsのTimingCallbacksを設定（ミリ秒単位で発火）
+                if (visualObj && typeof ABCJS.synth.TimingCallbacks === 'function') {
+                    animationCallback = new ABCJS.synth.TimingCallbacks(visualObj, {
+                        eventCallback: (event) => {
+                            // 前のハイライト（赤）を一度すべてクリア
+                            document.querySelectorAll(".abcjs-highlight").forEach(el => {
+                                el.classList.remove("abcjs-highlight");
+                            });
+                            
+                            // 現在演奏されている音符のDOM要素に赤色ハイライトクラスを付与
+                            if (event && event.elements) {
+                                event.elements.forEach(line => {
+                                    line.forEach(el => el.classList.add("abcjs-highlight"));
+                                });
+                            }
+                        }
+                    });
+                }
+
+                // 再生トラックのスケジュール登録
                 setupMidiTransport();
 
                 if (playBtn) playBtn.disabled = false;
@@ -99,11 +119,11 @@ if (fileInput) {
     });
 }
 
-// 動的ABC生成＆レンダリング（もともと綺麗に出ていたオプション設定）
+// 読み込んだMIDI情報から動的にABCテキストを生成して描画する関数
 function renderScoreFromMidi(midi) {
     if (typeof ABCJS === 'undefined') {
         console.error("ABCJSが読み込まれていません");
-        return;
+        return null;
     }
 
     let meter = "4/4";
@@ -149,15 +169,20 @@ function renderScoreFromMidi(midi) {
     if (!noteText) noteText = "Z8";
 
     const dynamicAbc = `X:1\nT:${midi.header.name || "Imported MIDI"}\nM:${meter}\nQ:1/4=${bpm}\nK:${key}\nL:1/8\n| ${noteText}`;
+    console.log("動的生成されたABCテキスト:\n", dynamicAbc);
 
-    // もともと楽譜が正常に描画されていたシンプルなレンダリングに戻す
-    ABCJS.renderAbc("paper", dynamicAbc, { responsive: "resize" });
+    const visualObj = ABCJS.renderAbc("paper", dynamicAbc, { responsive: "resize" });
+    return visualObj && visualObj[0];
 }
 
-// 再生クリーンアップ
+// 再生状態のリセット
 function resetPlayback() {
     Tone.Transport.stop();
     Tone.Transport.cancel();
+    if (animationCallback) {
+        animationCallback.stop();
+        animationCallback = null;
+    }
     if (updateTimerId !== null) {
         Tone.Transport.clear(updateTimerId);
         updateTimerId = null;
@@ -168,17 +193,12 @@ function resetPlayback() {
     if (pauseBtn) pauseBtn.disabled = true;
     if (stopBtn) stopBtn.disabled = true;
 
-    clearHighLight();
-}
-
-// すべてのハイライト（赤色）をリセットする安全な関数
-function clearHighLight() {
-    document.querySelectorAll("#paper svg path, #paper svg ellipse").forEach(el => {
+    document.querySelectorAll(".abcjs-highlight").forEach(el => {
         el.classList.remove("abcjs-highlight");
     });
 }
 
-// Tone.js タイムライン構築
+// トラックデータをTone.Partに格納してタイムラインを構築
 function setupMidiTransport() {
     if (!currentMidi) return;
 
@@ -205,28 +225,15 @@ function setupMidiTransport() {
         }
     }, midiEvents).start(0);
 
-    // ★【路線A】100ms周期のタイマーから、直接DOMの音符要素を数えてハイライト制御する
+    // プログレスバーと「楽譜のハイライト進行」を同期するタイマー（100ms周期）
     updateTimerId = Tone.Transport.scheduleRepeat(() => {
         const currentSeconds = Tone.Transport.seconds;
         if (progressBar) progressBar.value = currentSeconds;
         if (currentTimeDisplay) currentTimeDisplay.textContent = formatTime(currentSeconds);
         
-        if (currentMidi && currentMidi.duration > 0) {
-            // 進行度を 0.0 ～ 1.0 で算出
-            const progress = currentSeconds / currentMidi.duration;
-            
-            // 描画された楽譜SVGの中から、音符の構成要素（pathやellipse）をすべて取得
-            const noteElements = document.querySelectorAll("#paper svg path, #paper svg ellipse");
-            if (noteElements.length > 0) {
-                // 現在の進行度に対応する音符のインデックスを決定
-                const targetIndex = Math.floor(progress * noteElements.length);
-                
-                // 一旦すべてクリアしてから、現在のターゲット音符に赤色クラスを付与
-                clearHighLight();
-                if (noteElements[targetIndex]) {
-                    noteElements[targetIndex].classList.add("abcjs-highlight");
-                }
-            }
+        // ★ 秒（seconds）をミリ秒（ms）に変換してabcjsのハイライトシステムへ同期
+        if (animationCallback) {
+            animationCallback.setProgress(currentSeconds * 1000, currentMidi.duration * 1000);
         }
 
         if (currentSeconds >= currentMidi.duration) {
@@ -240,6 +247,11 @@ if (playBtn) {
     playBtn.addEventListener('click', async () => {
         await Tone.start();
         Tone.Transport.start();
+        
+        if (animationCallback) {
+            animationCallback.start();
+        }
+        
         playBtn.disabled = true;
         if (pauseBtn) pauseBtn.disabled = false;
     });
@@ -249,6 +261,11 @@ if (playBtn) {
 if (pauseBtn) {
     pauseBtn.addEventListener('click', () => {
         Tone.Transport.pause();
+        
+        if (animationCallback) {
+            animationCallback.pause();
+        }
+        
         if (playBtn) playBtn.disabled = false;
         pauseBtn.disabled = true;
     });
@@ -263,7 +280,13 @@ if (stopBtn) {
 
 function handleStop() {
     Tone.Transport.stop();
-    clearHighLight();
+    
+    if (animationCallback) {
+        animationCallback.stop();
+    }
+    document.querySelectorAll(".abcjs-highlight").forEach(el => {
+        el.classList.remove("abcjs-highlight");
+    });
 
     if (progressBar) progressBar.value = 0;
     if (currentTimeDisplay) currentTimeDisplay.textContent = "0:00";
@@ -278,5 +301,10 @@ if (progressBar) {
         const seekTo = parseFloat(e.target.value);
         Tone.Transport.seconds = seekTo;
         if (currentTimeDisplay) currentTimeDisplay.textContent = formatTime(seekTo);
+        
+        // ★ シーク時もミリ秒換算でハイライトをジャンプさせる
+        if (animationCallback) {
+            animationCallback.setProgress(seekTo * 1000, currentMidi.duration * 1000);
+        }
     });
 }
