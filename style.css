@@ -4,10 +4,10 @@ body {
     background-color: #f4f7f6;
     color: #333;
     display: flex;
-    flex-direction: column;   /* プレイヤーの下に縦並びにする設定 */
+    flex-direction: column;   /* 上下に縦並びにする */
     justify-content: flex-start;
     align-items: center;
-    min-height: 100vh;        /* スクロール可能にする */
+    min-height: 100vh;
     margin: 0;
     padding: 40px 20px;
     box-sizing: border-box;
@@ -21,7 +21,7 @@ body {
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
     text-align: center;
     width: 350px;
-    margin-bottom: 30px;      /* 楽譜との余白 */
+    margin-bottom: 30px;
 }
 
 h1 {
@@ -30,7 +30,7 @@ h1 {
     color: #2c3e50;
 }
 
-/* ファイル選択部分のカスタム */
+/* ファイル選択部分 */
 .upload-section {
     margin-bottom: 20px;
 }
@@ -60,7 +60,7 @@ input[type="file"] {
     color: #7f8c8d;
 }
 
-/* ボタンレイアウト */
+/* コントロールボタン */
 .control-section {
     display: flex;
     justify-content: space-between;
@@ -94,7 +94,7 @@ button:disabled {
     cursor: not-allowed;
 }
 
-/* 楽譜表示エリア（縦並び配置用） */
+/* 楽譜表示エリア（縦並び配置） */
 #paper {
     width: 100%;
     max-width: 800px;
@@ -105,7 +105,7 @@ button:disabled {
     box-sizing: border-box;
 }
 
-/* ★ 再生中に音符を真っ赤に染めるスタイル定義 */
+/* ★ 直接DOMを叩いて音符を真っ赤に染める定義 */
 .abcjs-highlight {
     fill: #ff0000 !important;
     stroke: #ff0000 !important;
