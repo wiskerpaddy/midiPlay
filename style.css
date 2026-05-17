@@ -4,9 +4,16 @@ body {
     background-color: #f4f7f6;
     color: #333;
     display: flex;
-    justify-content: center;
+    
+    /* ─── ここから変更・追加 ─── */
+    flex-direction: column;   /* 横並びから「縦並び」に変更 */
+    justify-content: flex-start; /* 上詰めに配置（楽譜が長くても崩れないように） */
     align-items: center;
-    height: 100vh;
+    min-height: 100vh;        /* 高さを固定せず、中身に応じて縦スクロール可能に */
+    padding: 40px 20px;       /* 上下に綺麗な余白を作ります */
+    box-sizing: border-box;   /* 余白を含めたサイズ計算を正常にします */
+    /* ─── ここまで ─── */
+    
     margin: 0;
 }
 
