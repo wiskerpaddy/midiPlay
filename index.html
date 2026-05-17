@@ -3,15 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <link rel="icon" href="icon.png" type="image/png">
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Web MIDI プレイヤー</title>
     
-    <!-- 外部ライブラリの読み込み -->
     <script src="https://unpkg.com/tone"></script>
     <script src="https://unpkg.com/@tonejs/midi"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/abcjs/6.3.0/abcjs-basic-min.js"></script>
     
-    <!-- 自作したCSSファイルの読み込み -->
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -24,10 +22,10 @@
         <input type="file" id="file-input" accept=".mid,.midi">
         <span id="file-name">ファイルが選択されていません</span>
     </div>
-    
+
     <div class="instrument-section" style="margin-bottom: 20px;">
-        <label for="instrument-select" style="font-size: 0.9rem; color: #2c3e50; margin-right: 8px;">音色:</label>
-        <select id="instrument-select" style="padding: 6px 12px; border-radius: 6px; border: 1px solid #bdc3c7; font-size: 0.9rem;">
+        <label for="instrument-select" style="font-size: 12px; color: #666; margin-right: 5px;">音色: </label>
+        <select id="instrument-select" style="padding: 5px 10px; border-radius: 4px; border: 1px solid #ccc;">
             <option value="piano">生ピアノ (Salamander)</option>
             <option value="synth">シンセサイザー (Triangle)</option>
         </select>
@@ -35,19 +33,26 @@
     
     <div class="control-section">
         <button id="play-btn" disabled>再生</button>
+        <button id="pause-btn" disabled>一時停止</button>
+        <button id="stop-btn" disabled>停止</button>
+    </div>
+
+    <div class="progress-section" style="margin: 15px 0;">
+        <input type="range" id="progress-bar" min="0" max="100" value="0" style="width: 100%;">
+        <div style="display: flex; justify-content: space-between; font-size: 12px; color: #666;">
+            <span id="current-time">0:00</span>
+            <span id="total-time">0:00</span>
+        </div>
+    </div>
+
+    <div class="volume-section" style="margin-bottom: 20px;">
+        <label style="font-size: 12px; color: #666;">音量: </label>
+        <input type="range" id="volume-slider" min="-30" max="0" value="-10">
     </div>
 </div>
 
-<!-- 自作したJavaScriptファイルの読み込み（必ずBodyの最後で読み込む） -->
+<div id="paper" style="margin-top: 20px; background: white; padding: 10px; border-radius: 8px;"></div>
+
 <script src="script.js"></script>
-<script>
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
-            .then(reg => console.log('Service Worker registered!'))
-            .catch(err => console.error('Service Worker failed:', err));
-        });
-    }
-</script>
 </body>
 </html>
