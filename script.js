@@ -1,7 +1,6 @@
 // プレイヤー用の状態管理
 let currentMidi = null;
 let updateTimerId = null; 
-let animationCallback = null; // abcjsのハイライト用オブジェクト
 
 // --- 音源とエフェクトの定義 ---
 const reverb = new Tone.Reverb(1.5).toDestination();
@@ -58,7 +57,7 @@ if (fileInput) {
 
         if (fileNameDisplay) fileNameDisplay.textContent = file.name;
 
-        // 再生状態・ハイライト状態を完全にクリア
+        // 再生状態を一度完全にクリア
         resetPlayback();
 
         const reader = new FileReader();
@@ -66,6 +65,7 @@ if (fileInput) {
             const arrayBuffer = event.target.result;
             
             try {
+                // MIDIファイルのパース
                 if (typeof Midi !== 'undefined' && Midi.fromArrayBuffer) {
                     currentMidi = Midi.fromArrayBuffer(arrayBuffer);
                 } else {
@@ -81,31 +81,13 @@ if (fileInput) {
                     progressBar.value = 0;
                 }
 
-                // MIDIから動的にABCテキストを生成して楽譜を描画
-                const visualObj = renderScoreFromMidi(currentMidi);
-
-                // ★ abcjsのTimingCallbacksを設定（ミリ秒単位で発火）
-                if (visualObj && typeof ABCJS.synth.TimingCallbacks === 'function') {
-                    animationCallback = new ABCJS.synth.TimingCallbacks(visualObj, {
-                        eventCallback: (event) => {
-                            // 前のハイライト（赤）を一度すべてクリア
-                            document.querySelectorAll(".abcjs-highlight").forEach(el => {
-                                el.classList.remove("abcjs-highlight");
-                            });
-                            
-                            // 現在演奏されている音符のDOM要素に赤色ハイライトクラスを付与
-                            if (event && event.elements) {
-                                event.elements.forEach(line => {
-                                    line.forEach(el => el.classList.add("abcjs-highlight"));
-                                });
-                            }
-                        }
-                    });
-                }
+                // 読み込んだMIDIに追従して五線譜を描画
+                renderScoreFromMidi(currentMidi);
 
                 // 再生トラックのスケジュール登録
                 setupMidiTransport();
 
+                // UIボタンの活性・非活性制御
                 if (playBtn) playBtn.disabled = false;
                 if (stopBtn) stopBtn.disabled = false;
                 if (pauseBtn) pauseBtn.disabled = true;
@@ -119,29 +101,33 @@ if (fileInput) {
     });
 }
 
-// 読み込んだMIDI情報から動的にABCテキストを生成して描画する関数
+// 読み込んだMIDIのメタデータからABC譜面を動的に組み立てて描画する関数
 function renderScoreFromMidi(midi) {
     if (typeof ABCJS === 'undefined') {
-        console.error("ABCJSが読み込まれていません");
-        return null;
+        console.error("ABCJSライブラリが読み込まれていません。CDNのブロック状況を確認してください。");
+        return;
     }
 
+    // ① 拍子の取得 (未指定なら 4/4)
     let meter = "4/4";
     if (midi.header.timeSignatures && midi.header.timeSignatures.length > 0) {
         const ts = midi.header.timeSignatures[0];
         meter = `${ts.numerator}/${ts.denominator}`;
     }
 
+    // ② テンポ(BPM)の取得 (未指定なら 120)
     let bpm = 120;
     if (midi.header.tempos && midi.header.tempos.length > 0) {
         bpm = Math.round(midi.header.tempos[0].bpm);
     }
 
+    // ③ キー(調)の取得 (未指定なら C)
     let key = "C";
     if (midi.header.keySignatures && midi.header.keySignatures.length > 0) {
         key = midi.header.keySignatures[0].key;
     }
 
+    // ④ ノートデータからABC音符文字列へのシリアライズ
     let noteText = "";
     if (midi.tracks && midi.tracks.length > 0) {
         const track = midi.tracks[0];
@@ -158,31 +144,24 @@ function renderScoreFromMidi(midi) {
         };
 
         const sortedNotes = [...track.notes].sort((a, b) => a.time - b.time);
-        let barCounter = 0;
         sortedNotes.forEach(note => {
             noteText += midiToAbc(note.midi) + " ";
-            barCounter++;
-            if (barCounter % 4 === 0) noteText += "| ";
         });
     }
 
     if (!noteText) noteText = "Z8";
 
-    const dynamicAbc = `X:1\nT:${midi.header.name || "Imported MIDI"}\nM:${meter}\nQ:1/4=${bpm}\nK:${key}\nL:1/8\n| ${noteText}`;
-    console.log("動的生成されたABCテキスト:\n", dynamicAbc);
+    // インポートしたMIDI情報に基づいてヘッダーを動的にバインド
+    const dynamicAbc = `X:1\nT:${midi.header.name || "Imported MIDI"}\nM:${meter}\nQ:1/4=${bpm}\nK:${key}\nL:1/8\n| ${noteText} |`;
+    console.log("生成されたABCテキスト:\n", dynamicAbc);
 
-    const visualObj = ABCJS.renderAbc("paper", dynamicAbc, { responsive: "resize" });
-    return visualObj && visualObj[0];
+    ABCJS.renderAbc("paper", dynamicAbc, { responsive: "resize" });
 }
 
 // 再生状態のリセット
 function resetPlayback() {
     Tone.Transport.stop();
     Tone.Transport.cancel();
-    if (animationCallback) {
-        animationCallback.stop();
-        animationCallback = null;
-    }
     if (updateTimerId !== null) {
         Tone.Transport.clear(updateTimerId);
         updateTimerId = null;
@@ -192,13 +171,9 @@ function resetPlayback() {
     if (playBtn) playBtn.disabled = true;
     if (pauseBtn) pauseBtn.disabled = true;
     if (stopBtn) stopBtn.disabled = true;
-
-    document.querySelectorAll(".abcjs-highlight").forEach(el => {
-        el.classList.remove("abcjs-highlight");
-    });
 }
 
-// トラックデータをTone.Partに格納してタイムラインを構築
+// トラックデータをTone.Partに格納して再生タイムラインを構築
 function setupMidiTransport() {
     if (!currentMidi) return;
 
@@ -225,17 +200,12 @@ function setupMidiTransport() {
         }
     }, midiEvents).start(0);
 
-    // プログレスバーと「楽譜のハイライト進行」を同期するタイマー（100ms周期）
+    // プログレスバーのタイムトラッキング（100ms周期）
     updateTimerId = Tone.Transport.scheduleRepeat(() => {
         const currentSeconds = Tone.Transport.seconds;
         if (progressBar) progressBar.value = currentSeconds;
         if (currentTimeDisplay) currentTimeDisplay.textContent = formatTime(currentSeconds);
         
-        // ★ 秒（seconds）をミリ秒（ms）に変換してabcjsのハイライトシステムへ同期
-        if (animationCallback) {
-            animationCallback.setProgress(currentSeconds * 1000, currentMidi.duration * 1000);
-        }
-
         if (currentSeconds >= currentMidi.duration) {
             handleStop();
         }
@@ -247,11 +217,6 @@ if (playBtn) {
     playBtn.addEventListener('click', async () => {
         await Tone.start();
         Tone.Transport.start();
-        
-        if (animationCallback) {
-            animationCallback.start();
-        }
-        
         playBtn.disabled = true;
         if (pauseBtn) pauseBtn.disabled = false;
     });
@@ -261,11 +226,6 @@ if (playBtn) {
 if (pauseBtn) {
     pauseBtn.addEventListener('click', () => {
         Tone.Transport.pause();
-        
-        if (animationCallback) {
-            animationCallback.pause();
-        }
-        
         if (playBtn) playBtn.disabled = false;
         pauseBtn.disabled = true;
     });
@@ -280,14 +240,6 @@ if (stopBtn) {
 
 function handleStop() {
     Tone.Transport.stop();
-    
-    if (animationCallback) {
-        animationCallback.stop();
-    }
-    document.querySelectorAll(".abcjs-highlight").forEach(el => {
-        el.classList.remove("abcjs-highlight");
-    });
-
     if (progressBar) progressBar.value = 0;
     if (currentTimeDisplay) currentTimeDisplay.textContent = "0:00";
     if (playBtn) playBtn.disabled = false;
@@ -301,10 +253,5 @@ if (progressBar) {
         const seekTo = parseFloat(e.target.value);
         Tone.Transport.seconds = seekTo;
         if (currentTimeDisplay) currentTimeDisplay.textContent = formatTime(seekTo);
-        
-        // ★ シーク時もミリ秒換算でハイライトをジャンプさせる
-        if (animationCallback) {
-            animationCallback.setProgress(seekTo * 1000, currentMidi.duration * 1000);
-        }
     });
 }
