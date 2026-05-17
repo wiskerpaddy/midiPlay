@@ -135,7 +135,7 @@ function renderScoreFromMidi(midi) {
 
     const midiToAbc = (midiNum) => {
         const notes = ['C', '^C', 'D', '^D', 'E', 'F', '^F', 'G', '^G', 'A', '^A', 'B'];
-        const octave = Math.floor(midiNum / 12) - 1;
+        const octave = Math.floor(midiNum / 12);
         const noteName = notes[midiNum % 12];
         
         if (octave === 4) return noteName; 
