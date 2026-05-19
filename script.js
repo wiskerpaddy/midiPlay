@@ -335,3 +335,23 @@ if (progressBar) {
         updateScoreHighlight(seekTo);
     });
 }
+
+// ==========================================
+// 楽譜表示のON/OFF切り替え処理
+// ==========================================
+const toggleScoreCheck = document.getElementById('toggle-score');
+const paperDiv = document.getElementById('paper');
+
+if (toggleScoreCheck && paperDiv) {
+    // ページ読み込み時の初期状態を反映
+    paperDiv.style.display = toggleScoreCheck.checked ? "block" : "none";
+
+    // チェックボックスがクリックされたときの処理
+    toggleScoreCheck.addEventListener('change', (e) => {
+        if (e.target.checked) {
+            paperDiv.style.display = "block";
+        } else {
+            paperDiv.style.display = "none";
+        }
+    });
+}
